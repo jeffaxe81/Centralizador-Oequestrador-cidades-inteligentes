@@ -1,0 +1,9 @@
+services:
+  integration-service:
+    build: .
+    environment:
+      NODE_ENV: development
+      PORT: 8080
+      LOG_LEVEL: info
+    ports:
+      - "8080:8080"
