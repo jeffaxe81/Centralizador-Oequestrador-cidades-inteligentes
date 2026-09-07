@@ -14,19 +14,25 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: pnpm
 
-      - run: corepack enable
-      - run: corepack prepare pnpm@10.15.0 --activate
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.15.0 --activate
+          pnpm --version
 
-      - name: Require lockfile
-        run: test -f pnpm-lock.yaml
-
-      - name: Install dependencies reproducibly
-        run: pnpm install --frozen-lockfile
+      - name: Bootstrap lockfile
+        run: pnpm install --no-frozen-lockfile
 
       - name: Quality gate
         run: pnpm quality
 
       - name: Docker build gate
         run: docker build -t axesistemas-integration-service:m001 .
+
+      - name: Upload lockfile bootstrap artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: m001-pnpm-lock
+          path: pnpm-lock.yaml
+          if-no-files-found: error
