@@ -1,6 +1,7 @@
 name: M001 RED Gate
 
 on:
+  workflow_dispatch:
   pull_request:
     branches: [main]
 
