@@ -10,8 +10,9 @@
   "scripts": {
     "check": "tsc --noEmit",
     "test": "vitest run",
-    "build": "tsc -p tsconfig.json",
-    "quality": "pnpm check && pnpm test && pnpm build"
+    "build": "tsc -p tsconfig.build.json",
+    "quality": "pnpm check && pnpm test && pnpm build",
+    "start": "node dist/server.js"
   },
   "dependencies": {
     "fastify": "^5.5.0",
