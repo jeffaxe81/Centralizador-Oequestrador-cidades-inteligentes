@@ -1,6 +1,8 @@
 name: M001 RED Gate
 
 on:
+  push:
+    branches: [main]
   pull_request:
     branches: [main]
 
