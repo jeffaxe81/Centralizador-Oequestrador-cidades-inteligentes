@@ -57,4 +57,8 @@ describe("ApiKeyAuthHeaders", () => {
     expect(JSON.stringify(events)).not.toContain(secret);
     expect(JSON.stringify(events)).toContain("[REDACTED]");
   });
+
+  it("fails fast when the API key is empty", () => {
+    expect(() => new ApiKeyAuthHeaders("")).toThrow(/invalid api key configuration/i);
+  });
 });
