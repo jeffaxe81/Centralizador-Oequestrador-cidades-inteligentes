@@ -52,4 +52,20 @@ describe("InMemoryEventBus idempotency", () => {
 
     expect(attempts).toBe(2);
   });
+
+  it("coalesces concurrent publications of the same event id", async () => {
+    const bus = new InMemoryEventBus({ idempotency: { enabled: true } });
+    let deliveries = 0;
+
+    bus.subscribe("customer.context.requested", async () => {
+      deliveries += 1;
+      await new Promise<void>((resolve) => setTimeout(resolve, 10));
+    });
+
+    const event = controlledEvent("evt-int09-003");
+
+    await Promise.all([bus.publish(event), bus.publish(event)]);
+
+    expect(deliveries).toBe(1);
+  });
 });
