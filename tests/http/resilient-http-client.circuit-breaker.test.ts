@@ -49,4 +49,10 @@ describe("ResilientHttpClient circuit breaker", () => {
     });
     expect(requests).toBe(2);
   });
+
+  it("fails fast when the failure threshold is invalid", () => {
+    expect(
+      () => new ResilientHttpClient({ circuitBreaker: { failureThreshold: 0 } })
+    ).toThrow(/invalid circuit breaker configuration/i);
+  });
 });
