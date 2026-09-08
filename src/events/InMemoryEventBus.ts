@@ -16,7 +16,18 @@ type InMemoryEventBusOptions = {
 export class InMemoryEventBus {
   private readonly handlers = new Map<string, ControlledEventHandler[]>();
 
-  constructor(private readonly options: InMemoryEventBusOptions = {}) {}
+  constructor(private readonly options: InMemoryEventBusOptions = {}) {
+    const retry = options.retry;
+    if (
+      retry &&
+      (!Number.isInteger(retry.maxAttempts) ||
+        retry.maxAttempts < 1 ||
+        !Number.isFinite(retry.backoffMs) ||
+        retry.backoffMs < 0)
+    ) {
+      throw new Error("Invalid retry configuration");
+    }
+  }
 
   subscribe(eventType: string, handler: ControlledEventHandler): void {
     const current = this.handlers.get(eventType) ?? [];
