@@ -9,12 +9,18 @@ type RetryOptions = {
   backoffMs: number;
 };
 
+type IdempotencyOptions = {
+  enabled: boolean;
+};
+
 type InMemoryEventBusOptions = {
   retry?: RetryOptions;
+  idempotency?: IdempotencyOptions;
 };
 
 export class InMemoryEventBus {
   private readonly handlers = new Map<string, ControlledEventHandler[]>();
+  private readonly processedEventIds = new Set<string>();
 
   constructor(private readonly options: InMemoryEventBusOptions = {}) {
     const retry = options.retry;
@@ -36,8 +42,16 @@ export class InMemoryEventBus {
   }
 
   async publish(event: ControlledEvent): Promise<void> {
+    if (this.options.idempotency?.enabled && this.processedEventIds.has(event.id)) {
+      return;
+    }
+
     const handlers = this.handlers.get(event.type) ?? [];
     await Promise.all(handlers.map(async (handler) => this.runHandler(handler, event)));
+
+    if (this.options.idempotency?.enabled) {
+      this.processedEventIds.add(event.id);
+    }
   }
 
   private async runHandler(
