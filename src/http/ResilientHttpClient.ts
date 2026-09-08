@@ -97,8 +97,16 @@ export class ResilientHttpClient {
     logger?: ResilientHttpLogger;
     circuitBreaker?: CircuitBreakerOptions;
   } = {}) {
+    const circuitBreaker = options.circuitBreaker;
+    if (
+      circuitBreaker !== undefined &&
+      (!Number.isInteger(circuitBreaker.failureThreshold) || circuitBreaker.failureThreshold < 1)
+    ) {
+      throw new Error("Invalid circuit breaker configuration");
+    }
+
     this.logger = options.logger;
-    this.circuitBreaker = options.circuitBreaker;
+    this.circuitBreaker = circuitBreaker;
   }
 
   async request(input: ResilientHttpRequest): Promise<ResilientHttpResponse> {
