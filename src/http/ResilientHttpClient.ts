@@ -11,10 +11,23 @@ export type ResilientHttpRequest = {
   correlationId: string;
   timeoutMs?: number;
   retry?: RetryPolicy;
+  headers?: Record<string, string>;
 };
 
 export type ResilientHttpResponse = {
   statusCode: number;
+};
+
+export type ResilientHttpLogEvent = {
+  event: "http.request";
+  method: ResilientHttpRequest["method"];
+  url: string;
+  correlationId: string;
+  headers: Record<string, string>;
+};
+
+export type ResilientHttpLogger = {
+  info(event: ResilientHttpLogEvent): void;
 };
 
 export class ResilientHttpError extends Error {
@@ -30,6 +43,13 @@ export class ResilientHttpError extends Error {
 }
 
 const retryableStatusCodes = new Set([502, 503, 504]);
+const sensitiveHeaderNames = new Set([
+  "authorization",
+  "cookie",
+  "set-cookie",
+  "proxy-authorization",
+  "x-api-key"
+]);
 
 function delay(ms: number): Promise<void> {
   if (ms <= 0) {
@@ -39,19 +59,49 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function sanitizeHeaders(headers: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(headers).map(([name, value]) => [
+      name,
+      sensitiveHeaderNames.has(name.toLowerCase()) ? "[REDACTED]" : value
+    ])
+  );
+}
+
+function logSafeUrl(input: string): string {
+  const url = new URL(input);
+  return `${url.origin}${url.pathname}`;
+}
+
 export class ResilientHttpClient {
+  private readonly logger?: ResilientHttpLogger;
+
+  constructor(options: { logger?: ResilientHttpLogger } = {}) {
+    this.logger = options.logger;
+  }
+
   async request(input: ResilientHttpRequest): Promise<ResilientHttpResponse> {
     const signal = input.timeoutMs === undefined ? undefined : AbortSignal.timeout(input.timeoutMs);
     const signalOptions = signal === undefined ? {} : { signal };
     const maxAttempts = input.method === "GET" ? Math.max(1, input.retry?.maxAttempts ?? 1) : 1;
+    const outboundHeaders = {
+      ...(input.headers ?? {}),
+      "x-correlation-id": input.correlationId
+    };
+
+    this.logger?.info({
+      event: "http.request",
+      method: input.method,
+      url: logSafeUrl(input.url),
+      correlationId: input.correlationId,
+      headers: sanitizeHeaders(outboundHeaders)
+    });
 
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       try {
         const response = await request(input.url, {
           method: input.method,
-          headers: {
-            "x-correlation-id": input.correlationId
-          },
+          headers: outboundHeaders,
           ...signalOptions
         });
 
