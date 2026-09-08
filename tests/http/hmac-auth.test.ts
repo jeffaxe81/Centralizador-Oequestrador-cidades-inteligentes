@@ -23,4 +23,8 @@ describe("HmacAuthHeaders", () => {
     expect(auth.headers({ ...base, timestamp: "2026-09-08T12:00:01.000Z" })["x-signature"]).not.toBe(first["x-signature"]);
     expect(auth.headers({ ...base, correlationId: "corr-int14b-002" })["x-signature"]).not.toBe(first["x-signature"]);
   });
+
+  it("fails fast when the HMAC secret is empty", () => {
+    expect(() => new HmacAuthHeaders("")).toThrow(/invalid hmac secret configuration/i);
+  });
 });
