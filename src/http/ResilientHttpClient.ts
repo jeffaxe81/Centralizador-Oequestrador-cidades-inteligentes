@@ -4,6 +4,7 @@ export type ResilientHttpRequest = {
   url: string;
   method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   correlationId: string;
+  timeoutMs?: number;
 };
 
 export type ResilientHttpResponse = {
@@ -12,11 +13,20 @@ export type ResilientHttpResponse = {
 
 export class ResilientHttpClient {
   async request(input: ResilientHttpRequest): Promise<ResilientHttpResponse> {
+    const timeoutOptions =
+      input.timeoutMs === undefined
+        ? {}
+        : {
+            headersTimeout: input.timeoutMs,
+            bodyTimeout: input.timeoutMs
+          };
+
     const response = await request(input.url, {
       method: input.method,
       headers: {
         "x-correlation-id": input.correlationId
-      }
+      },
+      ...timeoutOptions
     });
 
     await response.body.dump();
