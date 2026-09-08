@@ -5,6 +5,10 @@ export type RetryPolicy = {
   backoffMs: number;
 };
 
+export type CircuitBreakerOptions = {
+  failureThreshold: number;
+};
+
 export type ResilientHttpRequest = {
   url: string;
   method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -31,7 +35,7 @@ export type ResilientHttpLogger = {
   info(event: ResilientHttpLogEvent): void;
 };
 
-export type ResilientHttpErrorCode = "TIMEOUT" | "TRANSPORT";
+export type ResilientHttpErrorCode = "TIMEOUT" | "TRANSPORT" | "CIRCUIT_OPEN";
 
 export class ResilientHttpError extends Error {
   readonly code: ResilientHttpErrorCode;
@@ -85,12 +89,36 @@ function logSafeUrl(input: string): string {
 
 export class ResilientHttpClient {
   private readonly logger: ResilientHttpLogger | undefined;
+  private readonly circuitBreaker: CircuitBreakerOptions | undefined;
+  private consecutiveFailures = 0;
+  private circuitOpen = false;
 
-  constructor(options: { logger?: ResilientHttpLogger } = {}) {
+  constructor(options: {
+    logger?: ResilientHttpLogger;
+    circuitBreaker?: CircuitBreakerOptions;
+  } = {}) {
+    const circuitBreaker = options.circuitBreaker;
+    if (
+      circuitBreaker !== undefined &&
+      (!Number.isInteger(circuitBreaker.failureThreshold) || circuitBreaker.failureThreshold < 1)
+    ) {
+      throw new Error("Invalid circuit breaker configuration");
+    }
+
     this.logger = options.logger;
+    this.circuitBreaker = circuitBreaker;
   }
 
   async request(input: ResilientHttpRequest): Promise<ResilientHttpResponse> {
+    if (this.circuitOpen) {
+      throw new ResilientHttpError({
+        code: "CIRCUIT_OPEN",
+        correlationId: input.correlationId,
+        requestId: input.requestId,
+        message: "HTTP circuit is open"
+      });
+    }
+
     const signal = input.timeoutMs === undefined ? undefined : AbortSignal.timeout(input.timeoutMs);
     const signalOptions = signal === undefined ? {} : { signal };
     const maxAttempts = input.method === "GET" ? Math.max(1, input.retry?.maxAttempts ?? 1) : 1;
@@ -124,6 +152,12 @@ export class ResilientHttpClient {
           continue;
         }
 
+        if (retryableStatusCodes.has(response.statusCode)) {
+          this.recordCircuitFailure();
+        } else {
+          this.consecutiveFailures = 0;
+        }
+
         return {
           statusCode: response.statusCode
         };
@@ -147,5 +181,16 @@ export class ResilientHttpClient {
     }
 
     throw new Error("unreachable");
+  }
+
+  private recordCircuitFailure(): void {
+    if (this.circuitBreaker === undefined) {
+      return;
+    }
+
+    this.consecutiveFailures += 1;
+    if (this.consecutiveFailures >= this.circuitBreaker.failureThreshold) {
+      this.circuitOpen = true;
+    }
   }
 }
