@@ -13,12 +13,11 @@ export type ResilientHttpResponse = {
 
 export class ResilientHttpClient {
   async request(input: ResilientHttpRequest): Promise<ResilientHttpResponse> {
-    const timeoutOptions =
+    const signalOptions =
       input.timeoutMs === undefined
         ? {}
         : {
-            headersTimeout: input.timeoutMs,
-            bodyTimeout: input.timeoutMs
+            signal: AbortSignal.timeout(input.timeoutMs)
           };
 
     const response = await request(input.url, {
@@ -26,7 +25,7 @@ export class ResilientHttpClient {
       headers: {
         "x-correlation-id": input.correlationId
       },
-      ...timeoutOptions
+      ...signalOptions
     });
 
     await response.body.dump();
