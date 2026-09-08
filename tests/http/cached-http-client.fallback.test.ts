@@ -41,7 +41,8 @@ describe("CachedHttpClient fallback", () => {
     const input = {
       url: `http://127.0.0.1:${address.port}/health`,
       method: "GET" as const,
-      correlationId: "corr-int12-001"
+      correlationId: "corr-int12-001",
+      cacheKey: "tenant-001:health"
     };
 
     expect((await client.request(input)).statusCode).toBe(200);
