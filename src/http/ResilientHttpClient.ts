@@ -31,15 +31,24 @@ export type ResilientHttpLogger = {
   info(event: ResilientHttpLogEvent): void;
 };
 
-export class ResilientHttpError extends Error {
-  readonly code: "TIMEOUT";
-  readonly correlationId: string;
+export type ResilientHttpErrorCode = "TIMEOUT" | "TRANSPORT";
 
-  constructor(input: { code: "TIMEOUT"; correlationId: string; message: string }) {
+export class ResilientHttpError extends Error {
+  readonly code: ResilientHttpErrorCode;
+  readonly correlationId: string;
+  readonly requestId: string | undefined;
+
+  constructor(input: {
+    code: ResilientHttpErrorCode;
+    correlationId: string;
+    requestId?: string;
+    message: string;
+  }) {
     super(input.message);
     this.name = "ResilientHttpError";
     this.code = input.code;
     this.correlationId = input.correlationId;
+    this.requestId = input.requestId;
   }
 }
 
@@ -123,11 +132,17 @@ export class ResilientHttpClient {
           throw new ResilientHttpError({
             code: "TIMEOUT",
             correlationId: input.correlationId,
+            requestId: input.requestId,
             message: `HTTP request timed out after ${input.timeoutMs}ms`
           });
         }
 
-        throw error;
+        throw new ResilientHttpError({
+          code: "TRANSPORT",
+          correlationId: input.correlationId,
+          requestId: input.requestId,
+          message: "HTTP transport request failed"
+        });
       }
     }
 
