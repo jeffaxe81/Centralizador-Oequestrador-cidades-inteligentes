@@ -8,7 +8,11 @@ export type HmacAuthInput = {
 };
 
 export class HmacAuthHeaders {
-  constructor(private readonly secret: string) {}
+  constructor(private readonly secret: string) {
+    if (secret.trim().length === 0) {
+      throw new Error("Invalid HMAC secret configuration");
+    }
+  }
 
   headers(input: HmacAuthInput): Record<string, string> {
     const url = new URL(input.url);
