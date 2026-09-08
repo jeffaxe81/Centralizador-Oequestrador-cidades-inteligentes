@@ -13,15 +13,27 @@ type IdempotencyOptions = {
   enabled: boolean;
 };
 
+type DeadLetterOptions = {
+  enabled: boolean;
+};
+
 type InMemoryEventBusOptions = {
   retry?: RetryOptions;
   idempotency?: IdempotencyOptions;
+  deadLetter?: DeadLetterOptions;
+};
+
+export type DeadLetterEntry = {
+  event: ControlledEvent;
+  attempts: number;
+  errorMessage: string;
 };
 
 export class InMemoryEventBus {
   private readonly handlers = new Map<string, ControlledEventHandler[]>();
   private readonly processedEventIds = new Set<string>();
   private readonly inFlightEventPublications = new Map<string, Promise<void>>();
+  private readonly deadLetters: DeadLetterEntry[] = [];
 
   constructor(private readonly options: InMemoryEventBusOptions = {}) {
     const retry = options.retry;
@@ -40,6 +52,10 @@ export class InMemoryEventBus {
     const current = this.handlers.get(eventType) ?? [];
     current.push(handler);
     this.handlers.set(eventType, current);
+  }
+
+  getDeadLetters(): readonly DeadLetterEntry[] {
+    return [...this.deadLetters];
   }
 
   async publish(event: ControlledEvent): Promise<void> {
@@ -72,7 +88,20 @@ export class InMemoryEventBus {
 
   private async deliver(event: ControlledEvent): Promise<void> {
     const handlers = this.handlers.get(event.type) ?? [];
-    await Promise.all(handlers.map(async (handler) => this.runHandler(handler, event)));
+
+    try {
+      await Promise.all(handlers.map(async (handler) => this.runHandler(handler, event)));
+    } catch (error) {
+      if (this.options.deadLetter?.enabled) {
+        this.deadLetters.push({
+          event,
+          attempts: this.options.retry?.maxAttempts ?? 1,
+          errorMessage: error instanceof Error ? error.message : "Event delivery failed"
+        });
+      }
+
+      throw error;
+    }
   }
 
   private async runHandler(
