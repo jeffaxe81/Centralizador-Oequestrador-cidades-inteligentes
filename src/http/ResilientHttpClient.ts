@@ -41,7 +41,7 @@ export class ResilientHttpError extends Error {
   constructor(input: {
     code: ResilientHttpErrorCode;
     correlationId: string;
-    requestId?: string;
+    requestId: string | undefined;
     message: string;
   }) {
     super(input.message);
