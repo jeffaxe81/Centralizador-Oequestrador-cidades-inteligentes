@@ -74,7 +74,7 @@ function logSafeUrl(input: string): string {
 }
 
 export class ResilientHttpClient {
-  private readonly logger?: ResilientHttpLogger;
+  private readonly logger: ResilientHttpLogger | undefined;
 
   constructor(options: { logger?: ResilientHttpLogger } = {}) {
     this.logger = options.logger;
