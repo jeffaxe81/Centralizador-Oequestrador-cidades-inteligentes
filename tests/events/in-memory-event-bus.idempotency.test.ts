@@ -32,4 +32,24 @@ describe("InMemoryEventBus idempotency", () => {
 
     expect(deliveries).toBe(1);
   });
+
+  it("allows the same event id to be retried after a failed delivery", async () => {
+    const bus = new InMemoryEventBus({ idempotency: { enabled: true } });
+    let attempts = 0;
+
+    bus.subscribe("customer.context.requested", async () => {
+      attempts += 1;
+      if (attempts === 1) {
+        throw new Error("temporary failure");
+      }
+    });
+
+    const event = controlledEvent("evt-int09-002");
+
+    await expect(bus.publish(event)).rejects.toThrow("temporary failure");
+    await expect(bus.publish(event)).resolves.toBeUndefined();
+    await expect(bus.publish(event)).resolves.toBeUndefined();
+
+    expect(attempts).toBe(2);
+  });
 });
