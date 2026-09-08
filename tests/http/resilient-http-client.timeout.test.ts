@@ -1,6 +1,9 @@
 import { createServer } from "node:http";
 import { afterEach, describe, expect, it } from "vitest";
-import { ResilientHttpClient } from "../../src/http/ResilientHttpClient.js";
+import {
+  ResilientHttpClient,
+  ResilientHttpError
+} from "../../src/http/ResilientHttpClient.js";
 
 const servers: Array<ReturnType<typeof createServer>> = [];
 
@@ -16,7 +19,7 @@ afterEach(async () => {
 });
 
 describe("ResilientHttpClient timeout", () => {
-  it("aborts a request that exceeds its timeout", async () => {
+  it("normalizes a request timeout", async () => {
     const server = createServer((_request, response) => {
       setTimeout(() => {
         response.writeHead(204);
@@ -40,6 +43,12 @@ describe("ResilientHttpClient timeout", () => {
         correlationId: "corr-timeout",
         timeoutMs: 20
       })
-    ).rejects.toBeDefined();
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<ResilientHttpError>>({
+        name: "ResilientHttpError",
+        code: "TIMEOUT",
+        correlationId: "corr-timeout"
+      })
+    );
   });
 });
