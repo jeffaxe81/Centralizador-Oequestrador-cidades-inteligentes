@@ -56,4 +56,16 @@ describe("InMemoryEventBus retry/backoff", () => {
     );
     expect(attempts).toBe(3);
   });
+
+  it("fails fast when retry configuration is invalid", () => {
+    expect(
+      () =>
+        new InMemoryEventBus({
+          retry: {
+            maxAttempts: 0,
+            backoffMs: -1
+          }
+        })
+    ).toThrow("Invalid retry configuration");
+  });
 });
