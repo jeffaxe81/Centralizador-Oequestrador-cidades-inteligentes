@@ -23,13 +23,21 @@ export type ResilientHttpResponse = {
   statusCode: number;
 };
 
-export type ResilientHttpLogEvent = {
+export type ResilientHttpRequestLogEvent = {
   event: "http.request";
   method: ResilientHttpRequest["method"];
   url: string;
   correlationId: string;
   headers: Record<string, string>;
 };
+
+export type ResilientHttpCircuitLogEvent = {
+  event: "http.circuit_opened" | "http.circuit_blocked";
+  correlationId: string;
+  requestId: string | undefined;
+};
+
+export type ResilientHttpLogEvent = ResilientHttpRequestLogEvent | ResilientHttpCircuitLogEvent;
 
 export type ResilientHttpLogger = {
   info(event: ResilientHttpLogEvent): void;
@@ -111,6 +119,12 @@ export class ResilientHttpClient {
 
   async request(input: ResilientHttpRequest): Promise<ResilientHttpResponse> {
     if (this.circuitOpen) {
+      this.logger?.info({
+        event: "http.circuit_blocked",
+        correlationId: input.correlationId,
+        requestId: input.requestId
+      });
+
       throw new ResilientHttpError({
         code: "CIRCUIT_OPEN",
         correlationId: input.correlationId,
@@ -153,7 +167,7 @@ export class ResilientHttpClient {
         }
 
         if (retryableStatusCodes.has(response.statusCode)) {
-          this.recordCircuitFailure();
+          this.recordCircuitFailure(input);
         } else {
           this.consecutiveFailures = 0;
         }
@@ -183,14 +197,19 @@ export class ResilientHttpClient {
     throw new Error("unreachable");
   }
 
-  private recordCircuitFailure(): void {
+  private recordCircuitFailure(input: ResilientHttpRequest): void {
     if (this.circuitBreaker === undefined) {
       return;
     }
 
     this.consecutiveFailures += 1;
-    if (this.consecutiveFailures >= this.circuitBreaker.failureThreshold) {
+    if (this.consecutiveFailures >= this.circuitBreaker.failureThreshold && !this.circuitOpen) {
       this.circuitOpen = true;
+      this.logger?.info({
+        event: "http.circuit_opened",
+        correlationId: input.correlationId,
+        requestId: input.requestId
+      });
     }
   }
 }
