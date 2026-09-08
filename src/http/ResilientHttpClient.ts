@@ -9,6 +9,7 @@ export type ResilientHttpRequest = {
   url: string;
   method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   correlationId: string;
+  requestId?: string;
   timeoutMs?: number;
   retry?: RetryPolicy;
   headers?: Record<string, string>;
@@ -84,9 +85,11 @@ export class ResilientHttpClient {
     const signal = input.timeoutMs === undefined ? undefined : AbortSignal.timeout(input.timeoutMs);
     const signalOptions = signal === undefined ? {} : { signal };
     const maxAttempts = input.method === "GET" ? Math.max(1, input.retry?.maxAttempts ?? 1) : 1;
+    const requestIdHeaders = input.requestId === undefined ? {} : { "x-request-id": input.requestId };
     const outboundHeaders = {
       ...(input.headers ?? {}),
-      "x-correlation-id": input.correlationId
+      "x-correlation-id": input.correlationId,
+      ...requestIdHeaders
     };
 
     this.logger?.info({
