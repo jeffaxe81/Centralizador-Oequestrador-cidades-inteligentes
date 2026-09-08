@@ -1,6 +1,6 @@
 import { createServer } from "node:http";
 import { afterEach, describe, expect, it } from "vitest";
-import { ResilientHttpClient, ResilientHttpError } from "../../src/http/ResilientHttpClient.js";
+import { ResilientHttpClient } from "../../src/http/ResilientHttpClient.js";
 
 const servers: ReturnType<typeof createServer>[] = [];
 
@@ -44,7 +44,7 @@ describe("ResilientHttpClient circuit breaker", () => {
     expect((await client.request(input)).statusCode).toBe(503);
     expect((await client.request(input)).statusCode).toBe(503);
 
-    await expect(client.request(input)).rejects.toMatchObject<Partial<ResilientHttpError>>({
+    await expect(client.request(input)).rejects.toMatchObject({
       code: "CIRCUIT_OPEN"
     });
     expect(requests).toBe(2);
