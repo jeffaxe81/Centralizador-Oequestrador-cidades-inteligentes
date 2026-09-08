@@ -26,12 +26,13 @@ export class CrossProductQueryClient {
   query(input: CrossProductQueryInput): Promise<ResilientHttpResponse> {
     const baseUrl = this.registry.resolve(input.service);
     const url = new URL(input.path, `${baseUrl.replace(/\/$/, "")}/`).toString();
+    const requestId = input.requestId === undefined ? {} : { requestId: input.requestId };
 
     return this.httpClient.request({
       url,
       method: "GET",
       correlationId: input.correlationId,
-      requestId: input.requestId
+      ...requestId
     });
   }
 }
